@@ -75,3 +75,32 @@ export const batchResponseSchema = z.object({
   request_id: z.string().optional(),
   documentation_url: z.string().optional(),
 });
+
+export const createLockRequestSchema = z.object({
+  path: z.string(),
+  ref: z.object({ name: z.string() }).optional(),
+});
+
+export const createLockResponseSchema = z.object({
+  lock: z.object({
+    id: z.string(),
+    path: z.string(),
+    locked_at: z.string(),
+    owner: z.object({ name: z.string().optional() }).optional(),
+  }),
+  message: z.string().optional(),
+  request_id: z.string().optional(),
+  documentation_url: z.string().optional(),
+});
+
+export const lockListResponseSchema = z.object({
+  locks: z.array(
+    z.object({
+      id: z.string().optional(),
+      path: z.string().optional(),
+      locked_at: z.string().optional(),
+      owner: z.object({ name: z.string().optional() }).optional(),
+    }),
+  ),
+  next_cursor: z.string().optional(),
+});
