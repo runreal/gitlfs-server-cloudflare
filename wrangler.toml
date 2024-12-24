@@ -16,3 +16,6 @@ id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 binding = "LFS_BUCKET"
 bucket_name = "gitlfs-bucket"
 
+[[durable_objects.bindings]]
+name = "LOCK"
+class_name = "Lock"
