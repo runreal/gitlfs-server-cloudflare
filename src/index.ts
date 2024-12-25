@@ -1,6 +1,10 @@
 import { Hono } from "hono";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+	GetObjectCommand,
+	HeadObjectCommand,
+	PutObjectCommand,
+} from "@aws-sdk/client-s3";
 import type { KVNamespace, R2Bucket } from "@cloudflare/workers-types";
 import {
 	batchRequestSchema,
@@ -32,8 +36,10 @@ app.post("/:user/:repo/objects/batch", async (c) => {
 	const r2 = getS3Client(c);
 
 	const response = batchResponseSchema.parse({
+		transfer: "basic",
 		objects: [],
 	});
+
 	if (request.operation === "upload") {
 		for (const obj of request.objects) {
 			const url = await getSignedUrl(
@@ -60,14 +66,40 @@ app.post("/:user/:repo/objects/batch", async (c) => {
 	}
 	if (request.operation === "download") {
 		for (const obj of request.objects) {
+			let objKey = `${key}/${obj.oid}`;
+
+			let objectHeadReq = await r2
+				.send(
+					new HeadObjectCommand({
+						Bucket: c.env.BUCKET_NAME,
+						Key: objKey,
+					}),
+				)
+				.catch(() => ({}));
+			let size = objectHeadReq.ContentLength;
+
+			if (!size) {
+				response.objects.push({
+					oid: obj.oid,
+					size: obj.size,
+					error: {
+						code: 404,
+						message: "object not found",
+					},
+				});
+
+				continue;
+			}
+
 			const url = await getSignedUrl(
 				r2,
 				new GetObjectCommand({
 					Bucket: c.env.BUCKET_NAME,
-					Key: `${key}/${obj.oid}`,
+					Key: objKey,
 				}),
 				{ expiresIn: 3600 },
 			);
+
 
 			response.objects.push({
 				oid: obj.oid,
@@ -85,6 +117,11 @@ app.post("/:user/:repo/objects/batch", async (c) => {
 	return c.json(response, 200, {
 		"Content-Type": "application/vnd.git-lfs+json",
 	});
+});
+
+app.post("/org/:repo/objects/verify", async (c) => {
+	const body = await c.req.json();
+	console.log(body);
 });
 
 app.post("/:org/:repo/locks/verify", async (c) => {
